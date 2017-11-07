@@ -9,7 +9,6 @@ import (
 	"strconv"
 
 	"github.com/gorilla/websocket"
-
 	"github.com/brutella/hc"
 	"github.com/brutella/hc/accessory"
 )

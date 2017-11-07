@@ -1,11 +1,10 @@
 package main
 
 import (
-	"strconv"
-
+    "strconv"
+    "fmt"
+    
 	"github.com/brutella/hc/service"
-
-	"fmt"
 )
 
 type HapIO interface {
@@ -15,7 +14,6 @@ type HapIO interface {
 }
 
 func NewIO(cio CalaosIO) (HapIO, error) {
-
 	if cio.GuiType == "temp" {
 		svc := NewTemperatureSensor(cio.Name)
 		v, _ := strconv.ParseFloat(cio.State, 64)
