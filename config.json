@@ -1,0 +1,9 @@
+{
+    "WebSocketServer": {
+        "Host": "demo.calaos.fr",
+        "Port": 80,
+        "User": "demo@calaos.fr",
+        "Password": "demo"
+    },
+    "PinCode" : "63613161"
+}

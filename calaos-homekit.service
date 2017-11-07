@@ -1,0 +1,13 @@
+[Unit]
+Description=Calaos home automation HomeKit Gateway
+After=calaos.service
+
+[Service]
+ExecStart=/usr/bin/CalaosHomeKit -config /etc/calaos/calaos-homekit.json
+Type=simple
+User=root
+Restart=always
+RestartSec=0
+
+[Install]
+WantedBy=multi-user.target
