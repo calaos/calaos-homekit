@@ -4,6 +4,9 @@ import (
 	"github.com/brutella/hc/accessory"
 )
 
+type CalaosAccessory interface {
+}
+
 type CalaosGateway struct {
 	*accessory.Accessory
 }

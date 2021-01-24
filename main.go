@@ -11,6 +11,7 @@ import (
 	"github.com/brutella/hc"
 	"github.com/brutella/hc/accessory"
 	"github.com/gorilla/websocket"
+	"github.com/vcaesar/murmur"
 )
 
 type WebSocketConfig struct {
@@ -61,6 +62,7 @@ type CalaosIO struct {
 	GuiType string `json:"gui_type"`
 	State   string `json:"state"`
 	Rw      string `json:"rw,omitempty"`
+	IoStyle string `json:"io_style,omitempty"`
 }
 type CalaosHome struct {
 	Type string     `json:"type"`
@@ -81,7 +83,7 @@ type CalaosJsonMsgHome struct {
 
 type CalaosJsonSetState struct {
 	Msg   string `json:"msg"`
-	MsgID int    `json:"msg_id"`
+	MsgID string `json:"msg_id"`
 	Data  struct {
 		Id    string `json:"id"`
 		Value string `json:"value"`
@@ -92,6 +94,8 @@ var loggedin bool
 var home CalaosJsonMsgHome
 var configFilename string
 var config Configuration
+
+var accessories map[uint64]*accessory.Accessory
 
 //var hapIOs []HapIO
 
@@ -123,21 +127,39 @@ func getNameFromId(id string) string {
 
 }
 
-func setupCalaosHome() []*accessory.Accessory {
-	var accessories []*accessory.Accessory
+func setupCalaosHome() {
 	for i := range home.Data.Home {
 		for j := range home.Data.Home[i].IOs {
+
 			cio := home.Data.Home[i].IOs[j]
-			print(cio.ID)
+			var acc *accessory.Accessory
+			id := uint64(murmur.Sum32(cio.ID))
+			if cio.Visible != "false" {
+				if cio.GuiType == "temp" {
+					acc = NewTemperatureSensor(cio, id).Accessory
+				} else if cio.GuiType == "analog_in" {
+					if cio.IoStyle == "humidity" {
+						acc = NewHumiditySensor(cio, id).Accessory
+					}
+				} else if cio.GuiType == "light_dimmer" {
+					acc = NewLightDimmer(cio, id).Accessory
+				} else if cio.GuiType == "light" && cio.IoStyle == "" {
+					acc = NewLightDimmer(cio, id).Accessory
+				}
+
+				if acc != nil {
+					accessories[id] = acc
+				}
+				println(cio.IoStyle)
+			}
 		}
 	}
-	return accessories
 }
 
 func CalaosUpdate(cio CalaosIO) {
 
 	msg := CalaosJsonSetState{}
-	msg.MsgID = 1
+	msg.MsgID = "user_cmd"
 	msg.Msg = "set_state"
 	msg.Data.Id = cio.ID
 	msg.Data.Value = cio.State
@@ -247,6 +269,12 @@ func main() {
 						cio.State = eventMsg.Data.Data.State
 						// Iterate HAP IOs to find the same ID thand Calaos IO
 						// TODO change state
+
+						id := uint64(murmur.Sum32(cio.ID))
+						if val, found := accessories[id]; found {
+
+							println(val)
+						}
 					}
 				}
 				// Receive get_home message
@@ -269,7 +297,14 @@ func main() {
 					calaosIOs = home.Data.Home[0].IOs
 
 					// Associate Bridge and info to a new Ip transport
-					transport, err := hc.NewIPTransport(config, bridge)
+					accessories = make(map[uint64]*accessory.Accessory)
+					setupCalaosHome()
+					list := []*accessory.Accessory{}
+					for _, acc := range accessories {
+						list = append(list, acc)
+					}
+
+					transport, err := hc.NewIPTransport(config, bridge, list...)
 					if err != nil {
 						log.Println(err)
 						continue
