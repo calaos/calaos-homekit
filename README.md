@@ -14,5 +14,5 @@ PinCode is the pin code for pairing iOS device and your Calaos Homekit Gateway. 
 
 Launch CalaosHomeKit
 ```
-./CalaosHomeKit -config config.json
+./calaos-homekit -config config.json
 ```
