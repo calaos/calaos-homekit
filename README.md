@@ -16,3 +16,17 @@ Launch CalaosHomeKit
 ```
 ./calaos-homekit -config config.json
 ```
+Now you can Launch Home application on iOS
+- Click on "Add Accessory".
+- Click on "I Don't Have a Code or Cannot Scan"
+- Calaos-Server appears as Bridge in the list of detected devices.
+- Calaos-server is not an guenuine HomeKit device so you need to accept advertisement to be able to communicate with it.
+
+Now Input/Ouput marked as "visible" in calaos installer are proposed in Homekit. Note that Room is not imported inside HomeKit so you need to change it manually.
+For now only IO with following GuiType and IOStyle are supported : 
+- temp
+- input_analog / humidity
+- light_dimmer
+- light / without ioStyle
+
+If you want more types, please ask.
