@@ -8,9 +8,9 @@ import (
 	"os/signal"
 	"strconv"
 
-	"github.com/gorilla/websocket"
 	"github.com/brutella/hc"
 	"github.com/brutella/hc/accessory"
+	"github.com/gorilla/websocket"
 )
 
 type WebSocketConfig struct {
@@ -92,7 +92,9 @@ var loggedin bool
 var home CalaosJsonMsgHome
 var configFilename string
 var config Configuration
-var hapIOs []HapIO
+
+//var hapIOs []HapIO
+
 var calaosIOs []CalaosIO
 var websocketClient *websocket.Conn
 
@@ -121,18 +123,15 @@ func getNameFromId(id string) string {
 
 }
 
-func setupCalaosHome(acc *accessory.Accessory) {
+func setupCalaosHome() []*accessory.Accessory {
+	var accessories []*accessory.Accessory
 	for i := range home.Data.Home {
 		for j := range home.Data.Home[i].IOs {
 			cio := home.Data.Home[i].IOs[j]
-			io, err := NewIO(cio)
-			if err == nil {
-				hapIOs = append(hapIOs, io)
-				acc.AddService(io.Service())
-			}
+			print(cio.ID)
 		}
-
 	}
+	return accessories
 }
 
 func CalaosUpdate(cio CalaosIO) {
@@ -247,12 +246,7 @@ func main() {
 					if cio != nil {
 						cio.State = eventMsg.Data.Data.State
 						// Iterate HAP IOs to find the same ID thand Calaos IO
-						for _, io := range hapIOs {
-							if io.ID() == cio.ID {
-								// Update HAP Io
-								io.Update(cio)
-							}
-						}
+						// TODO change state
 					}
 				}
 				// Receive get_home message
@@ -274,7 +268,6 @@ func main() {
 					// Get a copy of all Calaos IOs
 					calaosIOs = home.Data.Home[0].IOs
 
-					setupCalaosHome(bridge)
 					// Associate Bridge and info to a new Ip transport
 					transport, err := hc.NewIPTransport(config, bridge)
 					if err != nil {
