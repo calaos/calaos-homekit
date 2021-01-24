@@ -95,7 +95,7 @@ var home CalaosJsonMsgHome
 var configFilename string
 var config Configuration
 
-var accessories map[uint64]*accessory.Accessory
+var accessories map[uint64]CalaosAccessory
 
 //var hapIOs []HapIO
 
@@ -132,19 +132,19 @@ func setupCalaosHome() {
 		for j := range home.Data.Home[i].IOs {
 
 			cio := home.Data.Home[i].IOs[j]
-			var acc *accessory.Accessory
+			var acc CalaosAccessory
 			id := uint64(murmur.Sum32(cio.ID))
 			if cio.Visible != "false" {
 				if cio.GuiType == "temp" {
-					acc = NewTemperatureSensor(cio, id).Accessory
+					acc = NewTemperatureSensor(cio, id)
 				} else if cio.GuiType == "analog_in" {
 					if cio.IoStyle == "humidity" {
-						acc = NewHumiditySensor(cio, id).Accessory
+						acc = NewHumiditySensor(cio, id)
 					}
 				} else if cio.GuiType == "light_dimmer" {
-					acc = NewLightDimmer(cio, id).Accessory
+					acc = NewLightDimmer(cio, id)
 				} else if cio.GuiType == "light" && cio.IoStyle == "" {
-					acc = NewLightDimmer(cio, id).Accessory
+					acc = NewLightDimmer(cio, id)
 				}
 
 				if acc != nil {
@@ -271,9 +271,8 @@ func main() {
 						// TODO change state
 
 						id := uint64(murmur.Sum32(cio.ID))
-						if val, found := accessories[id]; found {
-
-							println(val)
+						if acc, found := accessories[id]; found {
+							acc.Update(cio)
 						}
 					}
 				}
@@ -297,11 +296,11 @@ func main() {
 					calaosIOs = home.Data.Home[0].IOs
 
 					// Associate Bridge and info to a new Ip transport
-					accessories = make(map[uint64]*accessory.Accessory)
+					accessories = make(map[uint64]CalaosAccessory)
 					setupCalaosHome()
 					list := []*accessory.Accessory{}
 					for _, acc := range accessories {
-						list = append(list, acc)
+						list = append(list, acc.AccessoryGet())
 					}
 
 					transport, err := hc.NewIPTransport(config, bridge, list...)

@@ -5,6 +5,8 @@ import (
 )
 
 type CalaosAccessory interface {
+	Update(*CalaosIO) error
+	AccessoryGet() *accessory.Accessory
 }
 
 type CalaosGateway struct {

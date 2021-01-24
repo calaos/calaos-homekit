@@ -35,3 +35,16 @@ func NewHumiditySensor(cio CalaosIO, id uint64) *Humidity {
 
 	return &acc
 }
+
+func (acc *Humidity) Update(cio *CalaosIO) error {
+	if h, err := strconv.ParseFloat(cio.State, 32); err == nil {
+		acc.HumiditySensor.CurrentRelativeHumidity.SetValue(h)
+	} else {
+		acc.HumiditySensor.CurrentRelativeHumidity.SetValue(0.0)
+	}
+	return nil
+}
+
+func (acc *Humidity) AccessoryGet() *accessory.Accessory {
+	return acc.Accessory
+}

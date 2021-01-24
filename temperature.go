@@ -4,11 +4,15 @@ import (
 	"strconv"
 
 	"github.com/brutella/hc/accessory"
+	"github.com/brutella/hc/service"
 )
 
 type Temp struct {
 	*accessory.Accessory
+	TempSensor *service.TemperatureSensor
 }
+
+const TypeTemperatureSensor = "8A"
 
 func NewTemperatureSensor(cio CalaosIO, id uint64) *Temp {
 	acc := Temp{}
@@ -20,11 +24,32 @@ func NewTemperatureSensor(cio CalaosIO, id uint64) *Temp {
 		ID:           id,
 	}
 
-	if t, err := strconv.ParseFloat(cio.State, 32); err == nil {
-		acc.Accessory = accessory.NewTemperatureSensor(info, t, -50, 80, 0.1).Accessory
-	} else {
-		acc.Accessory = accessory.NewTemperatureSensor(info, 0, -50, 80, 0.1).Accessory
+	t, err := strconv.ParseFloat(cio.State, 32)
+	if err != nil {
+		t = 0.0
 	}
 
+	acc.Accessory = accessory.New(info, accessory.TypeSensor)
+	acc.TempSensor = service.NewTemperatureSensor()
+	acc.TempSensor.CurrentTemperature.SetValue(t)
+	acc.TempSensor.CurrentTemperature.SetMinValue(-50)
+	acc.TempSensor.CurrentTemperature.SetMaxValue(50)
+	acc.TempSensor.CurrentTemperature.SetStepValue(0.1)
+
+	acc.AddService(acc.TempSensor.Service)
+
 	return &acc
+}
+
+func (acc *Temp) Update(cio *CalaosIO) error {
+
+	t, err := strconv.ParseFloat(cio.State, 32)
+	if err == nil {
+		acc.TempSensor.CurrentTemperature.SetValue(t)
+	}
+	return err
+}
+
+func (acc *Temp) AccessoryGet() *accessory.Accessory {
+	return acc.Accessory
 }

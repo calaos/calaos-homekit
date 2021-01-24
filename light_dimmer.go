@@ -67,3 +67,16 @@ func NewLightDimmer(cio CalaosIO, id uint64) *LightDimmer {
 
 	return &acc
 }
+
+func (acc *LightDimmer) Update(cio *CalaosIO) error {
+	println("try to update val ", cio.State)
+	v, err := strconv.Atoi(cio.State)
+	if err == nil {
+		acc.Brightness.SetValue(v)
+	}
+	return err
+}
+
+func (acc *LightDimmer) AccessoryGet() *accessory.Accessory {
+	return acc.Accessory
+}
