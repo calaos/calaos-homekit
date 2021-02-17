@@ -74,6 +74,9 @@ func (acc *LightDimmer) Update(cio *CalaosIO) error {
 	v, err := strconv.Atoi(cio.State)
 	if err == nil {
 		acc.Brightness.SetValue(v)
+		if v == 0 {
+			acc.LightDimmer.On.SetValue(false)
+		}
 	}
 	return err
 }
