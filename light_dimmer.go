@@ -1,8 +1,9 @@
 package main
 
 import (
-	"log"
 	"strconv"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/brutella/hc/accessory"
 	"github.com/brutella/hc/characteristic"
@@ -49,11 +50,11 @@ func NewLightDimmer(cio CalaosIO, id uint64) *LightDimmer {
 
 	acc.LightDimmer.On.OnValueRemoteUpdate(func(on bool) {
 		if on == true {
-			log.Println("Switch is on")
+			log.Debug("Switch is on")
 			cio.State = "true"
 			CalaosUpdate(cio)
 		} else {
-			log.Println("Switch is off")
+			log.Debug("Switch is off")
 			cio.State = "false"
 			CalaosUpdate(cio)
 		}
@@ -69,7 +70,7 @@ func NewLightDimmer(cio CalaosIO, id uint64) *LightDimmer {
 }
 
 func (acc *LightDimmer) Update(cio *CalaosIO) error {
-	println("try to update val ", cio.State)
+	log.Debug("try to update val ", cio.State)
 	v, err := strconv.Atoi(cio.State)
 	if err == nil {
 		acc.Brightness.SetValue(v)
