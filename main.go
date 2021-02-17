@@ -101,7 +101,7 @@ var accessories map[uint64]CalaosAccessory
 //var hapIOs []HapIO
 
 var calaosIOs []CalaosIO
-var websocketClient *websocket.Conn
+var websocketClient *WebSocketClient
 
 func getIOFromId(id string) *CalaosIO {
 	for i := range home.Data.Home {
@@ -171,42 +171,12 @@ func CalaosUpdate(cio CalaosIO) {
 	}
 }
 
-func main() {
-	log.Println("Starting Calaos-Homekit")
-	flag.StringVar(&configFilename, "config", "./config.json", "Get the config to use. default value is ./config.json")
-	flag.Parse()
-	sigc := make(chan os.Signal, 1)
-	signal.Notify(sigc, os.Interrupt, os.Kill)
-
-	log.Println("Opening Configuration filename : " + configFilename)
-	file, err := os.Open(configFilename)
-	if err != nil {
-		log.Error("error:", err)
-		os.Exit(1)
-	}
-	decoder := json.NewDecoder(file)
-	err = decoder.Decode(&config)
-	if err != nil {
-		log.Error("error:", err)
-	}
-	log.Println("Configuration : ")
-	log.Println(config.WebSocketServer)
-
-	loggedin = false
-
-	log.Println("Opening :", "ws://"+config.WebSocketServer.Host+":"+strconv.Itoa(config.WebSocketServer.Port)+"/api")
-
-	websocketClient, _, err = websocket.DefaultDialer.Dial("ws://"+config.WebSocketServer.Host+":"+strconv.Itoa(config.WebSocketServer.Port)+"/api", nil)
-	if err != nil {
-		log.Fatal("dial:", err)
-	}
-	defer websocketClient.Close()
-
+func connectedCb() {
 	done := make(chan struct{})
 
 	// Send login message through Calaos websocket API
 	msg := "{ \"msg\": \"login\", \"msg_id\": \"1\", \"data\": { \"cn_user\": \"" + config.WebSocketServer.User + "\", \"cn_pass\": \"" + config.WebSocketServer.Password + "\" } }"
-	if err = websocketClient.WriteMessage(websocket.TextMessage, []byte(msg)); err != nil {
+	if err := websocketClient.WriteMessage(websocket.TextMessage, []byte(msg)); err != nil {
 		log.Error("Write message error")
 		return
 	}
@@ -314,6 +284,34 @@ func main() {
 			}
 		}
 	}()
+}
+
+func main() {
+	log.Println("Starting Calaos-Homekit")
+	flag.StringVar(&configFilename, "config", "./config.json", "Get the config to use. default value is ./config.json")
+	flag.Parse()
+	sigc := make(chan os.Signal, 1)
+	signal.Notify(sigc, os.Interrupt, os.Kill)
+
+	log.Println("Opening Configuration filename : " + configFilename)
+	file, err := os.Open(configFilename)
+	if err != nil {
+		log.Error("error:", err)
+		os.Exit(1)
+	}
+	decoder := json.NewDecoder(file)
+	err = decoder.Decode(&config)
+	if err != nil {
+		log.Error("error:", err)
+	}
+	log.Println("Configuration : ")
+	log.Println(config.WebSocketServer)
+
+	loggedin = false
+
+	log.Println("Opening :", "ws://"+config.WebSocketServer.Host+":"+strconv.Itoa(config.WebSocketServer.Port)+"/api")
+
+	websocketClient = Dial("ws://"+config.WebSocketServer.Host+":"+strconv.Itoa(config.WebSocketServer.Port)+"/api", connectedCb)
 
 	// Wait for Ctrl + c to qui app and close websocket properly
 	for {
