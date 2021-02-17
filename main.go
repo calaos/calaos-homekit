@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"log"
 	"os"
 	"os/signal"
 	"strconv"
@@ -12,6 +11,8 @@ import (
 	"github.com/brutella/hc/accessory"
 	"github.com/gorilla/websocket"
 	"github.com/vcaesar/murmur"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type WebSocketConfig struct {
@@ -146,11 +147,9 @@ func setupCalaosHome() {
 				} else if cio.GuiType == "light" && cio.IoStyle == "" {
 					acc = NewLightDimmer(cio, id)
 				}
-
 				if acc != nil {
 					accessories[id] = acc
 				}
-				println(cio.IoStyle)
 			}
 		}
 	}
@@ -167,13 +166,13 @@ func CalaosUpdate(cio CalaosIO) {
 	str, _ := json.Marshal(msg)
 
 	if err := websocketClient.WriteMessage(websocket.TextMessage, []byte(str)); err != nil {
-		log.Println("Write message error")
+		log.Error("Write message error")
 		return
 	}
 }
 
 func main() {
-
+	log.Println("Starting Calaos-Homekit")
 	flag.StringVar(&configFilename, "config", "./config.json", "Get the config to use. default value is ./config.json")
 	flag.Parse()
 	sigc := make(chan os.Signal, 1)
@@ -182,13 +181,13 @@ func main() {
 	log.Println("Opening Configuration filename : " + configFilename)
 	file, err := os.Open(configFilename)
 	if err != nil {
-		log.Println("error:", err)
+		log.Error("error:", err)
 		os.Exit(1)
 	}
 	decoder := json.NewDecoder(file)
 	err = decoder.Decode(&config)
 	if err != nil {
-		log.Println("error:", err)
+		log.Error("error:", err)
 	}
 	log.Println("Configuration : ")
 	log.Println(config.WebSocketServer)
@@ -208,7 +207,7 @@ func main() {
 	// Send login message through Calaos websocket API
 	msg := "{ \"msg\": \"login\", \"msg_id\": \"1\", \"data\": { \"cn_user\": \"" + config.WebSocketServer.User + "\", \"cn_pass\": \"" + config.WebSocketServer.Password + "\" } }"
 	if err = websocketClient.WriteMessage(websocket.TextMessage, []byte(msg)); err != nil {
-		log.Println("Write message error")
+		log.Error("Write message error")
 		return
 	}
 
@@ -227,7 +226,7 @@ func main() {
 			var msg CalaosJsonMsg
 			err = json.Unmarshal([]byte(message), &msg)
 			if err != nil {
-				log.Println("error:", err)
+				log.Error("error:", err)
 				continue
 			}
 			// Login message
@@ -235,7 +234,7 @@ func main() {
 				var loginMsg CalaosJsonMsgLogin
 				err = json.Unmarshal([]byte(message), &loginMsg)
 				if err != nil {
-					log.Println("error:", err)
+					log.Error("error:", err)
 					continue
 				}
 				// Login success
@@ -245,7 +244,7 @@ func main() {
 					// We are logged in, send get_home message to get all IO states
 					getHomeMsg := "{ \"msg\": \"get_home\", \"msg_id\": \"2\" }"
 					if err = websocketClient.WriteMessage(websocket.TextMessage, []byte(getHomeMsg)); err != nil {
-						log.Println("Write message error")
+						log.Error("Write message error")
 						continue
 					}
 				} else {
@@ -260,7 +259,7 @@ func main() {
 					var eventMsg CalaosJsonMsgEvent
 					err = json.Unmarshal([]byte(message), &eventMsg)
 					if err != nil {
-						log.Println("error:", err)
+						log.Error("error:", err)
 						continue
 					}
 					// Get the calaos IO from the Map
@@ -280,7 +279,7 @@ func main() {
 				if msg.Msg == "get_home" {
 					err = json.Unmarshal([]byte(message), &home)
 					if err != nil {
-						log.Println("error:", err)
+						log.Error("error:", err)
 					}
 					// Set Accessory infos
 					info := accessory.Info{
