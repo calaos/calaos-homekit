@@ -307,11 +307,17 @@ func main() {
 	log.Println("Configuration : ")
 	log.Println(config.WebSocketServer)
 
+	uriType := "ws"
+	if config.WebSocketServer.Port == 443 {
+		uriType = "wss"
+	}
+	calaosURI := uriType + "://" + config.WebSocketServer.Host + ":" + strconv.Itoa(config.WebSocketServer.Port) + "/api"
+
 	loggedin = false
 
-	log.Println("Opening :", "ws://"+config.WebSocketServer.Host+":"+strconv.Itoa(config.WebSocketServer.Port)+"/api")
+	log.Println("Opening :", calaosURI)
 
-	websocketClient = Dial("ws://"+config.WebSocketServer.Host+":"+strconv.Itoa(config.WebSocketServer.Port)+"/api", connectedCb)
+	websocketClient = Dial(calaosURI, connectedCb)
 
 	// Wait for Ctrl + c to qui app and close websocket properly
 	for {
