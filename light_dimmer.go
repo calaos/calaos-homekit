@@ -38,15 +38,7 @@ func NewLightDimmer(cio CalaosIO, id uint64) *LightDimmer {
 	acc.LightDimmer.Service.AddCharacteristic(acc.Brightness.Characteristic)
 	acc.LightDimmer.Service.AddCharacteristic(acc.Name.Characteristic)
 
-	if v, err := strconv.ParseFloat(cio.State, 32); err == nil {
-		ival := int(v)
-		acc.Brightness.SetValue(ival)
-		if ival == 0 {
-			acc.LightDimmer.On.SetValue(false)
-		} else {
-			acc.LightDimmer.On.SetValue(true)
-		}
-	}
+	acc.Update(&cio)
 
 	acc.LightDimmer.On.OnValueRemoteUpdate(func(on bool) {
 		if on == true {
@@ -58,7 +50,6 @@ func NewLightDimmer(cio CalaosIO, id uint64) *LightDimmer {
 			cio.State = "false"
 			CalaosUpdate(cio)
 		}
-
 	})
 
 	acc.Brightness.OnValueRemoteUpdate(func(val int) {
@@ -71,14 +62,29 @@ func NewLightDimmer(cio CalaosIO, id uint64) *LightDimmer {
 
 func (acc *LightDimmer) Update(cio *CalaosIO) error {
 	log.Debug("try to update val ", cio.State)
-	v, err := strconv.Atoi(cio.State)
-	if err == nil {
-		acc.Brightness.SetValue(v)
-		if v == 0 {
-			acc.LightDimmer.On.SetValue(false)
+	if cio.GuiType == "light_dimmer" {
+		v, err := strconv.Atoi(cio.State)
+		if err == nil {
+			acc.Brightness.SetValue(v)
+			if v == 0 {
+				acc.LightDimmer.On.SetValue(false)
+			} else {
+				acc.LightDimmer.On.SetValue(true)
+			}
 		}
+		return err
+	} else {
+		v, err := strconv.ParseBool(cio.State)
+		if err == nil {
+			acc.LightDimmer.On.SetValue(v)
+			if v {
+				acc.Brightness.SetValue(100)
+			} else {
+				acc.Brightness.SetValue(0)
+			}
+		}
+		return err
 	}
-	return err
 }
 
 func (acc *LightDimmer) AccessoryGet() *accessory.Accessory {

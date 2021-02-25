@@ -27,11 +27,7 @@ func NewHumiditySensor(cio CalaosIO, id uint64) *Humidity {
 
 	acc.AddService(acc.HumiditySensor.Service)
 
-	if h, err := strconv.ParseFloat(cio.State, 32); err == nil {
-		acc.HumiditySensor.CurrentRelativeHumidity.SetValue(h)
-	} else {
-		acc.HumiditySensor.CurrentRelativeHumidity.SetValue(0.0)
-	}
+	acc.Update(&cio)
 
 	return &acc
 }
