@@ -28,5 +28,6 @@ For now only IO with following GuiType and IOStyle are supported :
 - input_analog / humidity
 - light_dimmer
 - light / without ioStyle
+- shutter_smart
 
 If you want more types, please ask.

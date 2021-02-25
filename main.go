@@ -136,16 +136,29 @@ func setupCalaosHome() {
 			var acc CalaosAccessory
 			id := uint64(murmur.Sum32(cio.ID))
 			if cio.Visible != "false" {
-				if cio.GuiType == "temp" {
+				switch cio.GuiType {
+				case "temp":
 					acc = NewTemperatureSensor(cio, id)
-				} else if cio.GuiType == "analog_in" {
+
+				case "analog_in":
 					if cio.IoStyle == "humidity" {
 						acc = NewHumiditySensor(cio, id)
 					}
-				} else if cio.GuiType == "light_dimmer" {
+
+				case "light_dimmer":
 					acc = NewLightDimmer(cio, id)
-				} else if cio.GuiType == "light" && cio.IoStyle == "" {
-					acc = NewLightDimmer(cio, id)
+
+				case "light":
+					if cio.IoStyle == "" {
+						acc = NewLightDimmer(cio, id)
+					}
+
+				//TODO:
+				// case "shutter":
+				// 	acc = NewWindowCovering(cio, id)
+
+				case "shutter_smart":
+					acc = NewSmartShutter(cio, id)
 				}
 				if acc != nil {
 					accessories[id] = acc
@@ -236,7 +249,7 @@ func connectedCb() {
 					cio := getIOFromId(eventMsg.Data.Data.ID)
 					if cio != nil {
 						cio.State = eventMsg.Data.Data.State
-						// Iterate HAP IOs to find the same ID thand Calaos IO
+						// Iterate HAP IOs to find the same ID than Calaos IO
 						// TODO change state
 
 						id := uint64(murmur.Sum32(cio.ID))
