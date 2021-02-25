@@ -24,17 +24,13 @@ func NewTemperatureSensor(cio CalaosIO, id uint64) *Temp {
 		ID:           id,
 	}
 
-	t, err := strconv.ParseFloat(cio.State, 32)
-	if err != nil {
-		t = 0.0
-	}
-
 	acc.Accessory = accessory.New(info, accessory.TypeSensor)
 	acc.TempSensor = service.NewTemperatureSensor()
-	acc.TempSensor.CurrentTemperature.SetValue(t)
 	acc.TempSensor.CurrentTemperature.SetMinValue(-50)
 	acc.TempSensor.CurrentTemperature.SetMaxValue(50)
 	acc.TempSensor.CurrentTemperature.SetStepValue(0.1)
+
+	acc.Update(&cio)
 
 	acc.AddService(acc.TempSensor.Service)
 
