@@ -3,29 +3,27 @@ package main
 import (
 	"strconv"
 
-	"github.com/brutella/hc/accessory"
-	"github.com/brutella/hc/service"
+	"github.com/brutella/hap/accessory"
+	"github.com/brutella/hap/service"
 )
 
 type Humidity struct {
-	*accessory.Accessory
+	*accessory.A
 	HumiditySensor *service.HumiditySensor
 }
 
 func NewHumiditySensor(cio CalaosIO, id uint64) *Humidity {
 	acc := Humidity{}
-	info := accessory.Info{
-		Name:         cio.Name,
-		SerialNumber: cio.ID,
-		Manufacturer: "Calaos",
-		Model:        cio.IoType,
-		ID:           id,
-	}
+	// info := accessory.Info{
+	// 	Name:         cio.Name,
+	// 	SerialNumber: cio.ID,
+	// 	Manufacturer: "Calaos",
+	// 	Model:        cio.IoType,
+	// }
 
-	acc.Accessory = accessory.New(info, accessory.TypeSensor)
+	// acc.A = accessory.NewHumidifier(info).A
 	acc.HumiditySensor = service.NewHumiditySensor()
-
-	acc.AddService(acc.HumiditySensor.Service)
+	acc.HumiditySensor.Id = id
 
 	acc.Update(&cio)
 
@@ -41,6 +39,6 @@ func (acc *Humidity) Update(cio *CalaosIO) error {
 	return nil
 }
 
-func (acc *Humidity) AccessoryGet() *accessory.Accessory {
-	return acc.Accessory
+func (acc *Humidity) AccessoryGet() *accessory.A {
+	return acc.A
 }

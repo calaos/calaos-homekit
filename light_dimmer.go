@@ -5,16 +5,14 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/brutella/hc/accessory"
-	"github.com/brutella/hc/characteristic"
-	"github.com/brutella/hc/service"
+	"github.com/brutella/hap/accessory"
+	"github.com/brutella/hap/characteristic"
 )
 
 type LightDimmer struct {
-	*accessory.Accessory
-	LightDimmer *service.Lightbulb
-	Brightness  *characteristic.Brightness
-	Name        *characteristic.Name
+	*accessory.Lightbulb
+	Brightness *characteristic.Brightness
+	Name       *characteristic.Name
 }
 
 func NewLightDimmer(cio CalaosIO, id uint64) *LightDimmer {
@@ -24,23 +22,20 @@ func NewLightDimmer(cio CalaosIO, id uint64) *LightDimmer {
 		SerialNumber: cio.ID,
 		Manufacturer: "Calaos",
 		Model:        cio.IoType,
-		ID:           id,
 	}
 
-	acc.Accessory = accessory.New(info, accessory.TypeLightbulb)
-	acc.LightDimmer = service.NewLightbulb()
-
-	acc.AddService(acc.LightDimmer.Service)
+	acc.Lightbulb = accessory.NewLightbulb(info)
+	acc.Lightbulb.Id = id
 
 	acc.Brightness = characteristic.NewBrightness()
 	acc.Name = characteristic.NewName()
 
-	acc.LightDimmer.Service.AddCharacteristic(acc.Brightness.Characteristic)
-	acc.LightDimmer.Service.AddCharacteristic(acc.Name.Characteristic)
+	acc.Lightbulb.Lightbulb.AddC(acc.Brightness.C)
+	acc.Lightbulb.Lightbulb.AddC(acc.Name.C)
 
 	acc.Update(&cio)
 
-	acc.LightDimmer.On.OnValueRemoteUpdate(func(on bool) {
+	acc.Lightbulb.Lightbulb.On.OnValueRemoteUpdate(func(on bool) {
 		if on == true {
 			log.Debug("Switch is on")
 			cio.State = "true"
@@ -67,16 +62,16 @@ func (acc *LightDimmer) Update(cio *CalaosIO) error {
 		if err == nil {
 			acc.Brightness.SetValue(v)
 			if v == 0 {
-				acc.LightDimmer.On.SetValue(false)
+				acc.Lightbulb.Lightbulb.On.SetValue(false)
 			} else {
-				acc.LightDimmer.On.SetValue(true)
+				acc.Lightbulb.Lightbulb.On.SetValue(true)
 			}
 		}
 		return err
 	} else {
 		v, err := strconv.ParseBool(cio.State)
 		if err == nil {
-			acc.LightDimmer.On.SetValue(v)
+			acc.Lightbulb.Lightbulb.On.SetValue(v)
 			if v {
 				acc.Brightness.SetValue(100)
 			} else {
@@ -87,6 +82,6 @@ func (acc *LightDimmer) Update(cio *CalaosIO) error {
 	}
 }
 
-func (acc *LightDimmer) AccessoryGet() *accessory.Accessory {
-	return acc.Accessory
+func (acc *LightDimmer) AccessoryGet() *accessory.A {
+	return acc.A
 }

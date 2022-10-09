@@ -1,14 +1,16 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"os"
 	"os/signal"
 	"strconv"
+	"syscall"
 
-	"github.com/brutella/hc"
-	"github.com/brutella/hc/accessory"
+	"github.com/brutella/hap"
+	"github.com/brutella/hap/accessory"
 	"github.com/gorilla/websocket"
 	"github.com/vcaesar/murmur"
 
@@ -25,6 +27,7 @@ type WebSocketConfig struct {
 type Configuration struct {
 	WebSocketServer WebSocketConfig
 	PinCode         string
+	BridgeName      string
 }
 
 type CalaosJsonMsg struct {
@@ -184,7 +187,7 @@ func CalaosUpdate(cio CalaosIO) {
 	}
 }
 
-func connectedCb() {
+func connectedCb(ctx context.Context) {
 	done := make(chan struct{})
 
 	// Send login message through Calaos websocket API
@@ -264,34 +267,42 @@ func connectedCb() {
 					if err != nil {
 						log.Error("error:", err)
 					}
-					// Set Accessory infos
-					info := accessory.Info{
-						Name:         "Calaos Gateway",
-						Manufacturer: "Calaos",
-					}
 					// Create a new accessory of type Bridge
-					bridge := accessory.New(info, accessory.TypeBridge)
+					// bridge := NewCalaosGateway(config.BridgeName)
 
-					// Set the PIN code
-					config := hc.Config{Pin: config.PinCode}
+					info := accessory.Info{
+						Name:         config.BridgeName,
+						Manufacturer: "Calaos",
+						Model:        "calaos-homekit",
+						Firmware:     "3.0.0",
+					}
+					bridge := accessory.NewBridge(info)
+
 					// Get a copy of all Calaos IOs
 					calaosIOs = home.Data.Home[0].IOs
 
 					// Associate Bridge and info to a new Ip transport
 					accessories = make(map[uint64]CalaosAccessory)
 					setupCalaosHome()
-					list := []*accessory.Accessory{}
+					list := []*accessory.A{}
 					for _, acc := range accessories {
 						list = append(list, acc.AccessoryGet())
 					}
 
-					transport, err := hc.NewIPTransport(config, bridge, list...)
+					// Store the data in the "/Calaos Gateway" directory.
+					store := hap.NewFsStore("./Calaos Gateway")
+
+					server, err := hap.NewServer(store, bridge.A, list...)
 					if err != nil {
 						log.Println(err)
 						continue
 					} else {
 						log.Println("Start HAP")
-						go transport.Start()
+						// Set the PIN code
+						server.Pin = config.PinCode
+
+						// Run the server.
+						server.ListenAndServe(ctx)
 					}
 				}
 			}
@@ -303,8 +314,12 @@ func main() {
 	log.Println("Starting Calaos-Homekit")
 	flag.StringVar(&configFilename, "config", "./config.json", "Get the config to use. default value is ./config.json")
 	flag.Parse()
-	sigc := make(chan os.Signal, 1)
-	signal.Notify(sigc, os.Interrupt, os.Kill)
+
+	// Setup a listener for interrupts and SIGTERM signals to stop the server.
+	c := make(chan os.Signal)
+	signal.Notify(c, os.Interrupt, os.Kill, syscall.SIGTERM)
+
+	ctx, cancel := context.WithCancel(context.Background())
 
 	log.Println("Opening Configuration filename : " + configFilename)
 	file, err := os.Open(configFilename)
@@ -330,12 +345,17 @@ func main() {
 
 	log.Println("Opening :", calaosURI)
 
-	websocketClient = Dial(calaosURI, connectedCb)
+	websocketClient = Dial(calaosURI, func() { connectedCb(ctx) })
 
 	// Wait for Ctrl + c to qui app and close websocket properly
 	for {
 		select {
-		case <-sigc:
+		case <-c:
+			// Stop delivering signals.
+			defer signal.Stop(c)
+			// Cancel the context to stop the server.
+			defer cancel()
+
 			log.Println("interrupt")
 			err := websocketClient.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 			if err != nil {
@@ -346,5 +366,4 @@ func main() {
 			return
 		}
 	}
-
 }

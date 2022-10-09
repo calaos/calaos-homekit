@@ -6,9 +6,8 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/brutella/hc/accessory"
-	"github.com/brutella/hc/characteristic"
-	"github.com/brutella/hc/service"
+	"github.com/brutella/hap/accessory"
+	"github.com/brutella/hap/characteristic"
 )
 
 const (
@@ -18,10 +17,9 @@ const (
 )
 
 type SmartShutter struct {
-	*accessory.Accessory
-	WindowCovering *service.WindowCovering
-	HoldPosition   *characteristic.HoldPosition
-	Name           *characteristic.Name
+	*accessory.WindowCovering
+	HoldPosition *characteristic.HoldPosition
+	Name         *characteristic.Name
 }
 
 /*
@@ -66,25 +64,22 @@ func NewSmartShutter(cio CalaosIO, id uint64) *SmartShutter {
 		SerialNumber: cio.ID,
 		Manufacturer: "Calaos",
 		Model:        cio.IoType,
-		ID:           id,
 	}
 
-	acc.Accessory = accessory.New(info, accessory.TypeWindowCovering)
-	acc.WindowCovering = service.NewWindowCovering()
-
-	acc.AddService(acc.WindowCovering.Service)
+	acc.WindowCovering = accessory.NewWindowCovering(info)
+	acc.WindowCovering.Id = id
 
 	acc.HoldPosition = characteristic.NewHoldPosition()
 	acc.Name = characteristic.NewName()
 
-	acc.WindowCovering.Service.AddCharacteristic(acc.HoldPosition.Characteristic)
-	acc.WindowCovering.Service.AddCharacteristic(acc.Name.Characteristic)
+	acc.WindowCovering.WindowCovering.AddC(acc.HoldPosition.C)
+	acc.WindowCovering.WindowCovering.AddC(acc.Name.C)
 
 	acc.Update(&cio)
 
-	acc.WindowCovering.TargetPosition.OnValueRemoteUpdate(func(targetPosition int) {
+	acc.WindowCovering.WindowCovering.TargetPosition.OnValueRemoteUpdate(func(targetPosition int) {
 		//TODO: we should retrieve current position from cio object to compare, not from homekit
-		currentPosition := acc.WindowCovering.CurrentPosition.GetValue()
+		currentPosition := acc.WindowCovering.WindowCovering.CurrentPosition.Val
 		log.Debug("current position : ", currentPosition, " target position : ", targetPosition)
 		if targetPosition != currentPosition {
 			// calaos and homekit shutter position values are inverted
@@ -121,19 +116,19 @@ func (acc *SmartShutter) Update(cio *CalaosIO) error {
 		val := 100 - ival
 		switch command {
 		case "up":
-			acc.WindowCovering.PositionState.SetValue(OPENING)
-			acc.WindowCovering.TargetPosition.SetValue(val)
-			acc.WindowCovering.CurrentPosition.SetValue(val)
+			acc.WindowCovering.WindowCovering.PositionState.SetValue(OPENING)
+			acc.WindowCovering.WindowCovering.TargetPosition.SetValue(val)
+			acc.WindowCovering.WindowCovering.CurrentPosition.SetValue(val)
 
 		case "down":
-			acc.WindowCovering.PositionState.SetValue(CLOSING)
-			acc.WindowCovering.TargetPosition.SetValue(val)
-			acc.WindowCovering.CurrentPosition.SetValue(val)
+			acc.WindowCovering.WindowCovering.PositionState.SetValue(CLOSING)
+			acc.WindowCovering.WindowCovering.TargetPosition.SetValue(val)
+			acc.WindowCovering.WindowCovering.CurrentPosition.SetValue(val)
 
 		case "stop":
-			acc.WindowCovering.TargetPosition.SetValue(val)
-			acc.WindowCovering.CurrentPosition.SetValue(val)
-			acc.WindowCovering.PositionState.SetValue(STOPPED)
+			acc.WindowCovering.WindowCovering.TargetPosition.SetValue(val)
+			acc.WindowCovering.WindowCovering.CurrentPosition.SetValue(val)
+			acc.WindowCovering.WindowCovering.PositionState.SetValue(STOPPED)
 			acc.HoldPosition.SetValue(true)
 
 		case "calibration":
@@ -146,6 +141,6 @@ func (acc *SmartShutter) Update(cio *CalaosIO) error {
 	return nil
 }
 
-func (acc *SmartShutter) AccessoryGet() *accessory.Accessory {
-	return acc.Accessory
+func (acc *SmartShutter) AccessoryGet() *accessory.A {
+	return acc.A
 }
