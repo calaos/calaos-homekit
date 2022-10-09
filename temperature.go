@@ -3,13 +3,11 @@ package main
 import (
 	"strconv"
 
-	"github.com/brutella/hc/accessory"
-	"github.com/brutella/hc/service"
+	"github.com/brutella/hap/accessory"
 )
 
 type Temp struct {
-	*accessory.Accessory
-	TempSensor *service.TemperatureSensor
+	*accessory.Thermometer
 }
 
 const TypeTemperatureSensor = "8A"
@@ -21,24 +19,20 @@ func NewTemperatureSensor(cio CalaosIO, id uint64) *Temp {
 		SerialNumber: cio.ID,
 		Manufacturer: "Calaos",
 		Model:        cio.IoType,
-		ID:           id,
 	}
 
-	acc.Accessory = accessory.New(info, accessory.TypeSensor)
-	acc.TempSensor = service.NewTemperatureSensor()
-	acc.TempSensor.CurrentTemperature.SetMinValue(-50)
-	acc.TempSensor.CurrentTemperature.SetMaxValue(50)
-	acc.TempSensor.CurrentTemperature.SetStepValue(0.1)
+	acc.Thermometer = accessory.NewTemperatureSensor(info)
+	acc.Thermometer.Id = id
+	acc.Thermometer.TempSensor.CurrentTemperature.SetMinValue(-50)
+	acc.Thermometer.TempSensor.CurrentTemperature.SetMaxValue(50)
+	acc.Thermometer.TempSensor.CurrentTemperature.SetStepValue(0.1)
 
 	acc.Update(&cio)
-
-	acc.AddService(acc.TempSensor.Service)
 
 	return &acc
 }
 
 func (acc *Temp) Update(cio *CalaosIO) error {
-
 	t, err := strconv.ParseFloat(cio.State, 32)
 	if err == nil {
 		acc.TempSensor.CurrentTemperature.SetValue(t)
@@ -46,6 +40,6 @@ func (acc *Temp) Update(cio *CalaosIO) error {
 	return err
 }
 
-func (acc *Temp) AccessoryGet() *accessory.Accessory {
-	return acc.Accessory
+func (acc *Temp) AccessoryGet() *accessory.A {
+	return acc.A
 }

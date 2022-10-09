@@ -1,27 +1,28 @@
 package main
 
 import (
-	"github.com/brutella/hc/accessory"
+	"github.com/brutella/hap/accessory"
 )
 
 type CalaosAccessory interface {
 	Update(*CalaosIO) error
-	AccessoryGet() *accessory.Accessory
+	AccessoryGet() *accessory.A
 }
 
 type CalaosGateway struct {
-	*accessory.Accessory
+	*accessory.Bridge
 }
 
-func NewCalaosGateway() *CalaosGateway {
+func NewCalaosGateway(name string) *CalaosGateway {
 	acc := CalaosGateway{}
 
 	info := accessory.Info{
-		Name:         "Calaos Gateway",
-		Model:        "v3",
+		Name:         name,
 		Manufacturer: "Calaos",
+		Model:        "calaos-homekit",
+		Firmware:     "3.0.0",
 	}
-	acc.Accessory = accessory.New(info, accessory.TypeBridge)
+	acc.Bridge = accessory.NewBridge(info)
 
 	return &acc
 }
