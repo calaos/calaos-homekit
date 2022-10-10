@@ -41,5 +41,5 @@ func (acc *Temp) Update(cio *CalaosIO) error {
 }
 
 func (acc *Temp) AccessoryGet() *accessory.A {
-	return acc.A
+	return acc.Thermometer.A
 }

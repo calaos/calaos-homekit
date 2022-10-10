@@ -252,9 +252,6 @@ func connectedCb(ctx context.Context) {
 					cio := getIOFromId(eventMsg.Data.Data.ID)
 					if cio != nil {
 						cio.State = eventMsg.Data.Data.State
-						// Iterate HAP IOs to find the same ID than Calaos IO
-						// TODO change state
-
 						id := uint64(murmur.Sum32(cio.ID))
 						if acc, found := accessories[id]; found {
 							acc.Update(cio)
@@ -302,7 +299,7 @@ func connectedCb(ctx context.Context) {
 						server.Pin = config.PinCode
 
 						// Run the server.
-						server.ListenAndServe(ctx)
+						go server.ListenAndServe(ctx)
 					}
 				}
 			}
