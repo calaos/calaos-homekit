@@ -142,5 +142,5 @@ func (acc *SmartShutter) Update(cio *CalaosIO) error {
 }
 
 func (acc *SmartShutter) AccessoryGet() *accessory.A {
-	return acc.A
+	return acc.WindowCovering.A
 }

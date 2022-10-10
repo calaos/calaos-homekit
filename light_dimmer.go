@@ -83,5 +83,5 @@ func (acc *LightDimmer) Update(cio *CalaosIO) error {
 }
 
 func (acc *LightDimmer) AccessoryGet() *accessory.A {
-	return acc.A
+	return acc.Lightbulb.A
 }
