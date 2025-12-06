@@ -35,6 +35,15 @@ type CalaosJsonMsg struct {
 	MsgID string `json:"msg_id"`
 }
 
+type CalaosJsonMsgLoginRequest struct {
+	Msg   string `json:"msg"`
+	MsgID string `json:"msg_id"`
+	Data  struct {
+		CNUser string `json:"cn_user"`
+		CNPass string `json:"cn_pass"`
+	} `json:"data"`
+}
+
 type CalaosJsonMsgLogin struct {
 	Msg  string `json:"msg"`
 	Data struct {
@@ -92,6 +101,11 @@ type CalaosJsonSetState struct {
 		Id    string `json:"id"`
 		Value string `json:"value"`
 	} `json:"data"`
+}
+
+type CalaosJsonGetHomeRequest struct {
+	Msg   string `json:"msg"`
+	MsgID string `json:"msg_id"`
 }
 
 var loggedin bool
@@ -192,8 +206,19 @@ func connectedCb(ctx context.Context) {
 	done := make(chan struct{})
 
 	// Send login message through Calaos websocket API
-	msg := "{ \"msg\": \"login\", \"msg_id\": \"1\", \"data\": { \"cn_user\": \"" + config.WebSocketServer.User + "\", \"cn_pass\": \"" + config.WebSocketServer.Password + "\" } }"
-	if err := websocketClient.WriteMessage(websocket.TextMessage, []byte(msg)); err != nil {
+	loginMsg := CalaosJsonMsgLoginRequest{
+		Msg:   "login",
+		MsgID: "1",
+	}
+	loginMsg.Data.CNUser = config.WebSocketServer.User
+	loginMsg.Data.CNPass = config.WebSocketServer.Password
+
+	msgBytes, err := json.Marshal(loginMsg)
+	if err != nil {
+		log.Errorf("Failed to marshal login message: %v", err)
+		return
+	}
+	if err := websocketClient.WriteMessage(websocket.TextMessage, msgBytes); err != nil {
 		log.Error("Write message error")
 		return
 	}
@@ -229,8 +254,16 @@ func connectedCb(ctx context.Context) {
 					loggedin = true
 					log.Printf("Logged in")
 					// We are logged in, send get_home message to get all IO states
-					getHomeMsg := "{ \"msg\": \"get_home\", \"msg_id\": \"2\" }"
-					if err = websocketClient.WriteMessage(websocket.TextMessage, []byte(getHomeMsg)); err != nil {
+					getHomeMsg := CalaosJsonGetHomeRequest{
+						Msg:   "get_home",
+						MsgID: "2",
+					}
+					getHomeBytes, err := json.Marshal(getHomeMsg)
+					if err != nil {
+						log.Errorf("Failed to marshal get_home message: %v", err)
+						continue
+					}
+					if err = websocketClient.WriteMessage(websocket.TextMessage, getHomeBytes); err != nil {
 						log.Error("Write message error")
 						continue
 					}
