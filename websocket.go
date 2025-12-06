@@ -56,7 +56,7 @@ func (ws *WebSocketClient) connect() {
 			ws.connectedCb()
 			break
 		}
-		log.Error("dial:", err)
+		log.Errorf("Failed to dial WebSocket: %v", err)
 		time.Sleep(10 * time.Second)
 	}
 
