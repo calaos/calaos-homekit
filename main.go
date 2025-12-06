@@ -160,10 +160,6 @@ var configFilename string
 var config Configuration
 
 var accessories map[uint64]CalaosAccessory
-
-//var hapIOs []HapIO
-
-var calaosIOs []CalaosIO
 var websocketClient *WebSocketClient
 var hapServerStarted bool
 
@@ -334,9 +330,6 @@ func startHAPServer(ctx context.Context) error {
 	}
 	bridge := accessory.NewBridge(info)
 
-	// Get a copy of all Calaos IOs
-	calaosIOs = home.Data.Home[0].IOs
-
 	// Associate Bridge and info to a new Ip transport
 	accessories = make(map[uint64]CalaosAccessory)
 	setupCalaosHome()
@@ -405,8 +398,6 @@ func handleGetHomeMessage(message []byte, ctx context.Context) error {
 }
 
 func connectedCb(ctx context.Context) {
-	done := make(chan struct{})
-
 	// Send login message through Calaos websocket API
 	if err := sendLoginMessage(); err != nil {
 		log.Errorf("Failed to send login message: %v", err)
@@ -415,7 +406,6 @@ func connectedCb(ctx context.Context) {
 
 	go func() {
 		defer websocketClient.Close()
-		defer close(done)
 		// Infinite loop
 		for {
 			_, message, err := websocketClient.ReadMessage()
