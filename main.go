@@ -252,10 +252,8 @@ func CalaosUpdate(cio CalaosIO) {
 	}
 }
 
-func connectedCb(ctx context.Context) {
-	done := make(chan struct{})
-
-	// Send login message through Calaos websocket API
+// sendLoginMessage sends the initial login message to the Calaos WebSocket server
+func sendLoginMessage() error {
 	loginMsg := CalaosJsonMsgLoginRequest{
 		Msg:   CalaosMsgTypeLogin,
 		MsgID: CalaosMsgIDLogin,
@@ -265,11 +263,153 @@ func connectedCb(ctx context.Context) {
 
 	msgBytes, err := json.Marshal(loginMsg)
 	if err != nil {
-		log.Errorf("Failed to marshal login message: %v", err)
-		return
+		return err
 	}
-	if err := websocketClient.WriteMessage(websocket.TextMessage, msgBytes); err != nil {
-		log.Error("Write message error")
+	return websocketClient.WriteMessage(websocket.TextMessage, msgBytes)
+}
+
+// handleLoginMessage processes login response messages
+func handleLoginMessage(message []byte) error {
+	var loginMsg CalaosJsonMsgLogin
+	if err := json.Unmarshal(message, &loginMsg); err != nil {
+		return err
+	}
+
+	if loginMsg.Data.Success == CalaosSuccessTrue {
+		loggedin = true
+		log.Info("Logged in")
+		// Send get_home message to get all IO states
+		getHomeMsg := CalaosJsonGetHomeRequest{
+			Msg:   CalaosMsgTypeGetHome,
+			MsgID: CalaosMsgIDGetHome,
+		}
+		getHomeBytes, err := json.Marshal(getHomeMsg)
+		if err != nil {
+			return err
+		}
+		return websocketClient.WriteMessage(websocket.TextMessage, getHomeBytes)
+	}
+	loggedin = false
+	return nil
+}
+
+// handleEventMessage processes event messages and updates accessory states
+func handleEventMessage(message []byte) error {
+	var eventMsg CalaosJsonMsgEvent
+	if err := json.Unmarshal(message, &eventMsg); err != nil {
+		return err
+	}
+
+	cio := getIOFromId(eventMsg.Data.Data.ID)
+	if cio != nil {
+		cio.State = eventMsg.Data.Data.State
+		id := uint64(murmur.Sum32(cio.ID))
+		if acc, found := accessories[id]; found {
+			acc.Update(cio)
+		}
+	}
+	return nil
+}
+
+// updateAccessoryStates updates existing accessories with current state from Calaos
+func updateAccessoryStates() {
+	for i := range home.Data.Home {
+		for j := range home.Data.Home[i].IOs {
+			cio := home.Data.Home[i].IOs[j]
+			id := uint64(murmur.Sum32(cio.ID))
+			if acc, found := accessories[id]; found {
+				acc.Update(&cio)
+			}
+		}
+	}
+}
+
+// startHAPServer initializes and starts the HAP server with all accessories
+func startHAPServer(ctx context.Context) error {
+	info := accessory.Info{
+		Name:         config.BridgeName,
+		Manufacturer: "Calaos",
+		Model:        "calaos-homekit",
+		Firmware:     "3.0.0",
+	}
+	bridge := accessory.NewBridge(info)
+
+	// Get a copy of all Calaos IOs
+	calaosIOs = home.Data.Home[0].IOs
+
+	// Associate Bridge and info to a new Ip transport
+	accessories = make(map[uint64]CalaosAccessory)
+	setupCalaosHome()
+
+	if len(accessories) == 0 {
+		return nil
+	}
+
+	list := []*accessory.A{}
+	for _, acc := range accessories {
+		list = append(list, acc.AccessoryGet())
+	}
+
+	// Store the data in the "/Calaos Gateway" directory.
+	// Use absolute path to avoid issues with working directory
+	storePath := "/root/Calaos Gateway"
+	store := hap.NewFsStore(storePath)
+
+	server, err := hap.NewServer(store, bridge.A, list...)
+	if err != nil {
+		return err
+	}
+
+	log.Info("Starting HAP server")
+	server.Pin = config.PinCode
+	hapServerStarted = true
+
+	// Run the server.
+	go func() {
+		log.Info("HAP server listening for connections")
+		if err := server.ListenAndServe(ctx); err != nil {
+			log.Errorf("HAP server error: %v", err)
+			hapServerStarted = false
+		}
+	}()
+	return nil
+}
+
+// handleGetHomeMessage processes get_home messages and either updates or initializes accessories
+func handleGetHomeMessage(message []byte, ctx context.Context) error {
+	if err := json.Unmarshal(message, &home); err != nil {
+		return err
+	}
+
+	if len(home.Data.Home) == 0 {
+		log.Warn("get_home message has no home data")
+		return nil
+	}
+
+	// If server is already started, update existing accessories with current state
+	if hapServerStarted {
+		log.Info("HAP server already started, updating accessory states")
+		updateAccessoryStates()
+		return nil
+	}
+
+	// Start HAP server for the first time
+	if err := startHAPServer(ctx); err != nil {
+		return err
+	}
+
+	if len(accessories) == 0 {
+		log.Warn("No accessories found to expose in HomeKit")
+	}
+	return nil
+}
+
+func connectedCb(ctx context.Context) {
+	done := make(chan struct{})
+
+	// Send login message through Calaos websocket API
+	if err := sendLoginMessage(); err != nil {
+		log.Errorf("Failed to send login message: %v", err)
 		return
 	}
 
@@ -280,45 +420,22 @@ func connectedCb(ctx context.Context) {
 		for {
 			_, message, err := websocketClient.ReadMessage()
 			if err != nil {
-				log.Println("read:", err)
+				log.Error("read:", err)
 				return
 			}
-			//log.Printf("Receive message on Websocket: %s", message)
+
 			// Try to decode JSON message
 			var msg CalaosJsonMsg
-			err = json.Unmarshal([]byte(message), &msg)
-			if err != nil {
-				log.Error("error:", err)
+			if err := json.Unmarshal(message, &msg); err != nil {
+				log.Errorf("Failed to unmarshal message: %v", err)
 				continue
 			}
+
 			// Login message
 			if msg.Msg == CalaosMsgTypeLogin {
-				var loginMsg CalaosJsonMsgLogin
-				err = json.Unmarshal([]byte(message), &loginMsg)
-				if err != nil {
-					log.Error("error:", err)
+				if err := handleLoginMessage(message); err != nil {
+					log.Errorf("Failed to handle login message: %v", err)
 					continue
-				}
-				// Login success
-				if loginMsg.Data.Success == CalaosSuccessTrue {
-					loggedin = true
-					log.Printf("Logged in")
-					// We are logged in, send get_home message to get all IO states
-					getHomeMsg := CalaosJsonGetHomeRequest{
-						Msg:   CalaosMsgTypeGetHome,
-						MsgID: CalaosMsgIDGetHome,
-					}
-					getHomeBytes, err := json.Marshal(getHomeMsg)
-					if err != nil {
-						log.Errorf("Failed to marshal get_home message: %v", err)
-						continue
-					}
-					if err = websocketClient.WriteMessage(websocket.TextMessage, getHomeBytes); err != nil {
-						log.Error("Write message error")
-						continue
-					}
-				} else {
-					loggedin = false
 				}
 			}
 
@@ -326,106 +443,17 @@ func connectedCb(ctx context.Context) {
 			if loggedin {
 				// Msg event received
 				if msg.Msg == CalaosMsgTypeEvent {
-					var eventMsg CalaosJsonMsgEvent
-					err = json.Unmarshal([]byte(message), &eventMsg)
-					if err != nil {
-						log.Error("error:", err)
+					if err := handleEventMessage(message); err != nil {
+						log.Errorf("Failed to handle event message: %v", err)
 						continue
-					}
-					// Get the calaos IO from the Map
-					cio := getIOFromId(eventMsg.Data.Data.ID)
-					if cio != nil {
-						cio.State = eventMsg.Data.Data.State
-						id := uint64(murmur.Sum32(cio.ID))
-						if acc, found := accessories[id]; found {
-							acc.Update(cio)
-						}
 					}
 				}
 				// Receive get_home message
 				if msg.Msg == CalaosMsgTypeGetHome {
-					err = json.Unmarshal([]byte(message), &home)
-					if err != nil {
-						log.Error("error:", err)
+					if err := handleGetHomeMessage(message, ctx); err != nil {
+						log.Errorf("Failed to handle get_home message: %v", err)
 						continue
 					}
-					
-					if len(home.Data.Home) == 0 {
-						log.Warn("get_home message has no home data")
-						continue
-					}
-					
-					// If server is already started, update existing accessories with current state
-					if hapServerStarted {
-						log.Info("HAP server already started, updating accessory states")
-						// Update existing accessories with current state from Calaos
-						for i := range home.Data.Home {
-							for j := range home.Data.Home[i].IOs {
-								cio := home.Data.Home[i].IOs[j]
-								id := uint64(murmur.Sum32(cio.ID))
-								if acc, found := accessories[id]; found {
-									// Update the existing accessory with current state
-									acc.Update(&cio)
-								}
-							}
-						}
-						continue
-					}
-					
-					// Create a new accessory of type Bridge
-					// bridge := NewCalaosGateway(config.BridgeName)
-
-					info := accessory.Info{
-						Name:         config.BridgeName,
-						Manufacturer: "Calaos",
-						Model:        "calaos-homekit",
-						Firmware:     "3.0.0",
-					}
-					bridge := accessory.NewBridge(info)
-
-					// Get a copy of all Calaos IOs
-					calaosIOs = home.Data.Home[0].IOs
-
-					// Associate Bridge and info to a new Ip transport
-					accessories = make(map[uint64]CalaosAccessory)
-					setupCalaosHome()
-					
-					if len(accessories) == 0 {
-						log.Warn("No accessories found to expose in HomeKit")
-						continue
-					}
-					
-					list := []*accessory.A{}
-					for _, acc := range accessories {
-						list = append(list, acc.AccessoryGet())
-					}
-
-					// Store the data in the "/Calaos Gateway" directory.
-					// Use absolute path to avoid issues with working directory
-					storePath := "/root/Calaos Gateway"
-					store := hap.NewFsStore(storePath)
-
-					server, err := hap.NewServer(store, bridge.A, list...)
-					if err != nil {
-						log.Errorf("Failed to create HAP server: %v", err)
-						continue
-					}
-					
-					log.Info("Starting HAP server")
-					// Set the PIN code
-					server.Pin = config.PinCode
-
-					// Mark server as started before launching
-					hapServerStarted = true
-					
-					// Run the server.
-					go func() {
-						log.Info("HAP server listening for connections")
-						if err := server.ListenAndServe(ctx); err != nil {
-							log.Errorf("HAP server error: %v", err)
-							hapServerStarted = false
-						}
-					}()
 				}
 			}
 		}
