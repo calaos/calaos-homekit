@@ -243,7 +243,7 @@ func CalaosUpdate(cio CalaosIO) {
 	}
 
 	if err := websocketClient.WriteMessage(websocket.TextMessage, []byte(str)); err != nil {
-		log.Error("Write message error")
+		log.Errorf("Failed to write CalaosUpdate message: %v", err)
 		return
 	}
 }
@@ -410,7 +410,7 @@ func connectedCb(ctx context.Context) {
 		for {
 			_, message, err := websocketClient.ReadMessage()
 			if err != nil {
-				log.Error("read:", err)
+				log.Errorf("Failed to read WebSocket message: %v", err)
 				return
 			}
 
@@ -451,7 +451,7 @@ func connectedCb(ctx context.Context) {
 }
 
 func main() {
-	log.Println("Starting Calaos-Homekit")
+	log.Info("Starting Calaos-Homekit")
 	flag.StringVar(&configFilename, "config", "./config.json", "Get the config to use. default value is ./config.json")
 	flag.Parse()
 
@@ -461,22 +461,21 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	log.Println("Opening Configuration filename : " + configFilename)
+	log.Infof("Opening configuration file: %s", configFilename)
 	file, err := os.Open(configFilename)
 	if err != nil {
-		log.Error("error:", err)
+		log.Errorf("Failed to open configuration file: %v", err)
 		os.Exit(1)
 	}
 	defer file.Close()
 	decoder := json.NewDecoder(file)
 	err = decoder.Decode(&config)
 	if err != nil {
-		log.Error("error:", err)
+		log.Errorf("Failed to decode configuration: %v", err)
 		file.Close()
 		os.Exit(1)
 	}
-	log.Println("Configuration : ")
-	log.Println(config.WebSocketServer)
+	log.Infof("Configuration loaded: WebSocket server at %s:%d", config.WebSocketServer.Host, config.WebSocketServer.Port)
 
 	uriType := URITypeWS
 	if config.WebSocketServer.Port == PortWSS {
@@ -486,7 +485,7 @@ func main() {
 
 	loggedin = false
 
-	log.Println("Opening :", calaosURI)
+	log.Infof("Connecting to Calaos WebSocket: %s", calaosURI)
 
 	websocketClient = Dial(calaosURI, func() { connectedCb(ctx) })
 
@@ -499,10 +498,10 @@ func main() {
 			// Cancel the context to stop the server.
 			defer cancel()
 
-			log.Println("interrupt")
+			log.Info("Received interrupt signal, shutting down")
 			err := websocketClient.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 			if err != nil {
-				log.Println("write close:", err)
+				log.Errorf("Failed to send close message: %v", err)
 				return
 			}
 			websocketClient.Close()
