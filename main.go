@@ -17,6 +17,52 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// Calaos message types
+const (
+	CalaosMsgTypeLogin   = "login"
+	CalaosMsgTypeEvent   = "event"
+	CalaosMsgTypeGetHome = "get_home"
+	CalaosMsgTypeSetState = "set_state"
+)
+
+// Calaos message IDs
+const (
+	CalaosMsgIDLogin   = "1"
+	CalaosMsgIDGetHome = "2"
+	CalaosMsgIDUserCmd = "user_cmd"
+)
+
+// Calaos boolean string values
+const (
+	CalaosVisibleFalse = "false"
+	CalaosSuccessTrue = "true"
+)
+
+// Calaos GUI types
+const (
+	CalaosGuiTypeTemp         = "temp"
+	CalaosGuiTypeAnalogIn     = "analog_in"
+	CalaosGuiTypeLightDimmer  = "light_dimmer"
+	CalaosGuiTypeLight        = "light"
+	CalaosGuiTypeShutterSmart = "shutter_smart"
+)
+
+// Calaos IO styles
+const (
+	CalaosIOStyleHumidity = "humidity"
+)
+
+// WebSocket URI types
+const (
+	URITypeWS  = "ws"
+	URITypeWSS = "wss"
+)
+
+// WebSocket ports
+const (
+	PortWSS = 443
+)
+
 type WebSocketConfig struct {
 	Host     string
 	Port     int
@@ -153,20 +199,20 @@ func setupCalaosHome() {
 			cio := home.Data.Home[i].IOs[j]
 			var acc CalaosAccessory
 			id := uint64(murmur.Sum32(cio.ID))
-			if cio.Visible != "false" {
+			if cio.Visible != CalaosVisibleFalse {
 				switch cio.GuiType {
-				case "temp":
+				case CalaosGuiTypeTemp:
 					acc = NewTemperatureSensor(cio, id)
 
-				case "analog_in":
-					if cio.IoStyle == "humidity" {
+				case CalaosGuiTypeAnalogIn:
+					if cio.IoStyle == CalaosIOStyleHumidity {
 						acc = NewHumiditySensor(cio, id)
 					}
 
-				case "light_dimmer":
+				case CalaosGuiTypeLightDimmer:
 					acc = NewLightDimmer(cio, id)
 
-				case "light":
+				case CalaosGuiTypeLight:
 					if cio.IoStyle == "" {
 						acc = NewLightDimmer(cio, id)
 					}
@@ -175,7 +221,7 @@ func setupCalaosHome() {
 				// case "shutter":
 				// 	acc = NewWindowCovering(cio, id)
 
-				case "shutter_smart":
+				case CalaosGuiTypeShutterSmart:
 					acc = NewSmartShutter(cio, id)
 				}
 				if acc != nil {
@@ -189,8 +235,8 @@ func setupCalaosHome() {
 func CalaosUpdate(cio CalaosIO) {
 
 	msg := CalaosJsonSetState{}
-	msg.MsgID = "user_cmd"
-	msg.Msg = "set_state"
+	msg.MsgID = CalaosMsgIDUserCmd
+	msg.Msg = CalaosMsgTypeSetState
 	msg.Data.Id = cio.ID
 	msg.Data.Value = cio.State
 
@@ -211,8 +257,8 @@ func connectedCb(ctx context.Context) {
 
 	// Send login message through Calaos websocket API
 	loginMsg := CalaosJsonMsgLoginRequest{
-		Msg:   "login",
-		MsgID: "1",
+		Msg:   CalaosMsgTypeLogin,
+		MsgID: CalaosMsgIDLogin,
 	}
 	loginMsg.Data.CNUser = config.WebSocketServer.User
 	loginMsg.Data.CNPass = config.WebSocketServer.Password
@@ -246,7 +292,7 @@ func connectedCb(ctx context.Context) {
 				continue
 			}
 			// Login message
-			if msg.Msg == "login" {
+			if msg.Msg == CalaosMsgTypeLogin {
 				var loginMsg CalaosJsonMsgLogin
 				err = json.Unmarshal([]byte(message), &loginMsg)
 				if err != nil {
@@ -254,13 +300,13 @@ func connectedCb(ctx context.Context) {
 					continue
 				}
 				// Login success
-				if loginMsg.Data.Success == "true" {
+				if loginMsg.Data.Success == CalaosSuccessTrue {
 					loggedin = true
 					log.Printf("Logged in")
 					// We are logged in, send get_home message to get all IO states
 					getHomeMsg := CalaosJsonGetHomeRequest{
-						Msg:   "get_home",
-						MsgID: "2",
+						Msg:   CalaosMsgTypeGetHome,
+						MsgID: CalaosMsgIDGetHome,
 					}
 					getHomeBytes, err := json.Marshal(getHomeMsg)
 					if err != nil {
@@ -279,7 +325,7 @@ func connectedCb(ctx context.Context) {
 			// If we received and we are logged in
 			if loggedin {
 				// Msg event received
-				if msg.Msg == "event" {
+				if msg.Msg == CalaosMsgTypeEvent {
 					var eventMsg CalaosJsonMsgEvent
 					err = json.Unmarshal([]byte(message), &eventMsg)
 					if err != nil {
@@ -297,7 +343,7 @@ func connectedCb(ctx context.Context) {
 					}
 				}
 				// Receive get_home message
-				if msg.Msg == "get_home" {
+				if msg.Msg == CalaosMsgTypeGetHome {
 					err = json.Unmarshal([]byte(message), &home)
 					if err != nil {
 						log.Error("error:", err)
@@ -414,9 +460,9 @@ func main() {
 	log.Println("Configuration : ")
 	log.Println(config.WebSocketServer)
 
-	uriType := "ws"
-	if config.WebSocketServer.Port == 443 {
-		uriType = "wss"
+	uriType := URITypeWS
+	if config.WebSocketServer.Port == PortWSS {
+		uriType = URITypeWSS
 	}
 	calaosURI := uriType + "://" + config.WebSocketServer.Host + ":" + strconv.Itoa(config.WebSocketServer.Port) + "/api"
 
