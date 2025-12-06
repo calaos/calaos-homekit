@@ -194,7 +194,11 @@ func CalaosUpdate(cio CalaosIO) {
 	msg.Data.Id = cio.ID
 	msg.Data.Value = cio.State
 
-	str, _ := json.Marshal(msg)
+	str, err := json.Marshal(msg)
+	if err != nil {
+		log.Errorf("Failed to marshal CalaosUpdate message: %v", err)
+		return
+	}
 
 	if err := websocketClient.WriteMessage(websocket.TextMessage, []byte(str)); err != nil {
 		log.Error("Write message error")
