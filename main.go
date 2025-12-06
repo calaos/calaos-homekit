@@ -366,10 +366,13 @@ func main() {
 		log.Error("error:", err)
 		os.Exit(1)
 	}
+	defer file.Close()
 	decoder := json.NewDecoder(file)
 	err = decoder.Decode(&config)
 	if err != nil {
 		log.Error("error:", err)
+		file.Close()
+		os.Exit(1)
 	}
 	log.Println("Configuration : ")
 	log.Println(config.WebSocketServer)
