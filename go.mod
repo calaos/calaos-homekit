@@ -6,13 +6,16 @@ require (
 	github.com/brutella/hap v0.0.35
 	github.com/gorilla/websocket v1.5.3
 	github.com/sirupsen/logrus v1.9.3
+	github.com/stretchr/testify v1.11.1
 	github.com/vcaesar/murmur v0.21.0
 )
 
 require (
 	github.com/brutella/dnssd v1.2.14 // indirect
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-chi/chi v1.5.5 // indirect
 	github.com/miekg/dns v1.1.68 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/tadglines/go-pkgs v0.0.0-20210623144937-b983b20f54f9 // indirect
 	github.com/vishvananda/netlink v1.3.1 // indirect
 	github.com/vishvananda/netns v0.0.5 // indirect
@@ -25,4 +28,5 @@ require (
 	golang.org/x/text v0.31.0 // indirect
 	golang.org/x/tools v0.39.0 // indirect
 	gopkg.in/Regis24GmbH/go-diacritics.v2 v2.0.3 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
