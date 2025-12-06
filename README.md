@@ -52,7 +52,7 @@ copy files to server
 ```
 scp calaos-homekit root@<ip_calaos>:/usr/bin/CalaosHomeKit
 scp calaos-homekit.service root@<ip_calaos>:/lib/systemd/system/calaos-homekit.service
-scp config.json root@<ip_calaos>:/etc/calaos/calaos-homekit.json
+scp config.json root@<ip_calaos>:/mnt/calaos/homekit/config.json
 ```
 
 ask server to start homekit service at each boot

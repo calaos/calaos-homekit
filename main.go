@@ -105,6 +105,7 @@ var accessories map[uint64]CalaosAccessory
 
 var calaosIOs []CalaosIO
 var websocketClient *WebSocketClient
+var hapServerStarted bool
 
 func getIOFromId(id string) *CalaosIO {
 	for i := range home.Data.Home {
@@ -263,7 +264,31 @@ func connectedCb(ctx context.Context) {
 					err = json.Unmarshal([]byte(message), &home)
 					if err != nil {
 						log.Error("error:", err)
+						continue
 					}
+					
+					if len(home.Data.Home) == 0 {
+						log.Warn("get_home message has no home data")
+						continue
+					}
+					
+					// If server is already started, update existing accessories with current state
+					if hapServerStarted {
+						log.Info("HAP server already started, updating accessory states")
+						// Update existing accessories with current state from Calaos
+						for i := range home.Data.Home {
+							for j := range home.Data.Home[i].IOs {
+								cio := home.Data.Home[i].IOs[j]
+								id := uint64(murmur.Sum32(cio.ID))
+								if acc, found := accessories[id]; found {
+									// Update the existing accessory with current state
+									acc.Update(&cio)
+								}
+							}
+						}
+						continue
+					}
+					
 					// Create a new accessory of type Bridge
 					// bridge := NewCalaosGateway(config.BridgeName)
 
@@ -281,26 +306,43 @@ func connectedCb(ctx context.Context) {
 					// Associate Bridge and info to a new Ip transport
 					accessories = make(map[uint64]CalaosAccessory)
 					setupCalaosHome()
+					
+					if len(accessories) == 0 {
+						log.Warn("No accessories found to expose in HomeKit")
+						continue
+					}
+					
 					list := []*accessory.A{}
 					for _, acc := range accessories {
 						list = append(list, acc.AccessoryGet())
 					}
 
 					// Store the data in the "/Calaos Gateway" directory.
-					store := hap.NewFsStore("./Calaos Gateway")
+					// Use absolute path to avoid issues with working directory
+					storePath := "/root/Calaos Gateway"
+					store := hap.NewFsStore(storePath)
 
 					server, err := hap.NewServer(store, bridge.A, list...)
 					if err != nil {
-						log.Println(err)
+						log.Errorf("Failed to create HAP server: %v", err)
 						continue
-					} else {
-						log.Println("Start HAP")
-						// Set the PIN code
-						server.Pin = config.PinCode
-
-						// Run the server.
-						go server.ListenAndServe(ctx)
 					}
+					
+					log.Info("Starting HAP server")
+					// Set the PIN code
+					server.Pin = config.PinCode
+
+					// Mark server as started before launching
+					hapServerStarted = true
+					
+					// Run the server.
+					go func() {
+						log.Info("HAP server listening for connections")
+						if err := server.ListenAndServe(ctx); err != nil {
+							log.Errorf("HAP server error: %v", err)
+							hapServerStarted = false
+						}
+					}()
 				}
 			}
 		}
