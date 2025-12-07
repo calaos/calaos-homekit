@@ -39,7 +39,7 @@ For now only IO with following GuiType and IOStyle are supported :
 
 If you want more types, please ask.
 
-## Depoloy to calaos server
+## Deploy to calaos server
 
 build for linux
 
