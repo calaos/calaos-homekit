@@ -18,7 +18,7 @@ type WebSocketClient struct {
 	connectedCb func()
 }
 
-func (ws *WebSocketClient) closeAndRecconect() {
+func (ws *WebSocketClient) closeAndReconnect() {
 	ws.Close()
 	go func() {
 		ws.connect()
@@ -56,7 +56,7 @@ func (ws *WebSocketClient) connect() {
 			ws.connectedCb()
 			break
 		}
-		log.Error("dial:", err)
+		log.Errorf("Failed to dial WebSocket: %v", err)
 		time.Sleep(10 * time.Second)
 	}
 
@@ -67,7 +67,7 @@ func (ws *WebSocketClient) WriteMessage(messageType int, data []byte) error {
 	if ws.IsConnected() {
 		err = ws.conn.WriteMessage(messageType, data)
 		if err != nil {
-			ws.closeAndRecconect()
+			ws.closeAndReconnect()
 		}
 	}
 
@@ -80,7 +80,7 @@ func (ws *WebSocketClient) ReadMessage() (messageType int, message []byte, err e
 	if ws.IsConnected() {
 		messageType, message, err = ws.conn.ReadMessage()
 		if err != nil {
-			ws.closeAndRecconect()
+			ws.closeAndReconnect()
 		}
 	}
 

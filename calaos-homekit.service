@@ -3,7 +3,7 @@ Description=Calaos home automation HomeKit Gateway
 After=calaos.service
 
 [Service]
-ExecStart=/usr/bin/CalaosHomeKit -config /etc/calaos/calaos-homekit.json
+ExecStart=/usr/bin/CalaosHomeKit -config /mnt/calaos/homekit/config.json
 Type=simple
 User=root
 Restart=always
